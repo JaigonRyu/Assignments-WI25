@@ -38,7 +38,16 @@ class MonteCarloControl:
         
         Returns: none, stores data as class attributes
         """
-         # Your code here
+        self.env = env
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.Q0 = Q0
+        self.max_episode_size = max_episode_size
+
+        self.Q = defaultdict(lambda: np.full(self.env.n_actions, Q0))
+        self.target_policy = defaultdict(lambda: np.ones(self.env.n_actions) / self.env.n_actions)
+        self.behavior_policy = defaultdict(lambda: np.ones(self.env.n_actions) / self.env.n_actions)
+        self.C = defaultdict(lambda: np.zeros(self.env.n_actions))
 
 
     def create_target_greedy_policy(self):
@@ -53,6 +62,18 @@ class MonteCarloControl:
         """
         # Your code here
 
+        for state in self.Q:
+
+            best_action = np.argmax(self.Q[state])
+
+            prob_vector = np.zeros_like(self.Q[state])
+
+            prob_vector[best_action] = 1.0
+
+            self.target_policy[state] = prob_vector
+
+
+
     def create_behavior_egreedy_policy(self):
         """
         Loop through all states in the self.target_policy dictionary. 
@@ -63,6 +84,19 @@ class MonteCarloControl:
         Returns: none, stores new policy in self.target_policy
         """
         # Your code here
+
+        num = self.env.n_actions
+
+        for state in self.target_policy:
+            
+            prob_vector = np.ones(num) * (self.epsilon / num)
+
+            greedy = np.argmax(self.target_policy[state])
+
+            prob_vector[greedy] += (1-self.epsilon)
+
+            self.behavior_policy[state] = prob_vector
+
 
         
     def egreedy_selection(self, state):
@@ -78,6 +112,12 @@ class MonteCarloControl:
         """
         # Your code here
 
+        action = random.choices(range(self.env.n_actions), weights=self.behavior_policy[state])[0]
+
+        #print(action)
+
+        return int(action)
+
     def generate_egreedy_episode(self):
         """
         Generate an episode using the epsilon-greedy behavior policy. Will not go longer than self.max_episode_size
@@ -91,6 +131,30 @@ class MonteCarloControl:
             list: The generated episode, which is a list of (state, action, reward) tuples.
         """
         # Your code here
+
+        episode = []
+
+        state = self.env.reset()
+        state = str(state)
+
+        for i in range(self.max_episode_size):
+
+            action = self.egreedy_selection(state)
+            
+            reward = self.env.take_action(action)
+            next_state = self.env.get_state()
+            done = self.env.is_terminal_state()
+
+            next_state = str(next_state)
+
+            episode.append((state, action, reward))
+
+            if done == True:
+                break
+
+            state = next_state
+
+        return episode
         
     
     def generate_greedy_episode(self):
@@ -106,6 +170,30 @@ class MonteCarloControl:
             list: The generated episode, which is a list of (state, action, reward) tuples.
         """
         # Your code here
+
+        episode = []
+
+        state = self.env.reset()
+        state = str(state)
+
+        for i in range(self.max_episode_size):
+
+            action = np.argmax(self.target_policy[state])
+            
+            reward = self.env.take_action(action)
+            next_state = self.env.get_state()
+            done = self.env.is_terminal_state()
+
+            next_state = str(next_state)
+
+            episode.append((state, action, reward))
+
+            if done == True:
+                break
+
+            state = next_state
+
+        return episode
     
     def update_offpolicy(self, episode):
         """
@@ -117,6 +205,25 @@ class MonteCarloControl:
         """
         # Your code here
 
+        G = 0
+        W = 1  # Importance sampling ratio
+
+        for t in reversed(range(len(episode))):
+            state, action, reward = episode[t]
+            state = str(state)
+
+            G = self.gamma * G + reward  # Compute return
+
+            # Update C[state][action]
+            self.C[state][action] += W
+            self.Q[state][action] += (W / self.C[state][action]) * (G - self.Q[state][action])
+
+            # If action is not the greedy action, stop updating
+            if action != np.argmax(self.target_policy[state]):
+                break
+
+            W /= self.behavior_policy[state][action]  # Update importance sampling ratio
+
     
     def update_onpolicy(self, episode):
         """
@@ -127,6 +234,25 @@ class MonteCarloControl:
         Returns: none
         """
         # Your code here
+
+        G = 0
+        visited_states = set()  # Track first-visit states
+
+        for t in reversed(range(len(episode))):
+            state, action, reward = episode[t]
+            state = str(state)
+
+            G = self.gamma * G + reward  # Compute return
+
+            if (state, action) not in visited_states:
+                visited_states.add((state, action))
+
+                self.Q[state][action] += (1 / (self.C[state][action] + 1)) * (G - self.Q[state][action])
+                self.C[state][action] += 1
+
+                # Update policy
+                self.create_target_greedy_policy()
+                self.create_behavior_egreedy_policy()
 
 
     def train_offpolicy(self, num_episodes):
