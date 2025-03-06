@@ -75,7 +75,6 @@ class DynamicProgramming:
 
                 reward, new_state = self._simulate_action(state, action)
 
-
                 self.value_function[state] = reward + self.gamma * self.value_function.get(new_state, 0.0)
 
                 delta = max(delta, abs(old_val-self.value_function[state]))

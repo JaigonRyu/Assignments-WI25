@@ -137,7 +137,7 @@ class MonteCarloControl:
         state = self.env.reset()
         state = str(state)
 
-        for i in range(self.max_episode_size):
+        for _ in range(self.max_episode_size):
 
             action = self.egreedy_selection(state)
             
@@ -209,23 +209,51 @@ class MonteCarloControl:
         """
         # Your code here
 
-        G = 0
-        W = 1  # Importance sampling ratio
 
-        for t in reversed(range(len(episode))):
-            state, action, reward = episode[t]
-            state = str(state)
+        for _ in range(self.max_episode_size):
 
-            G = self.gamma * G + reward  # Compute return
+            G = 0
+            W = 1
 
-            # Update C[state][action]
-            self.C[state][action] += W
-            self.Q[state][action] += (W / self.C[state][action]) * (G - self.Q[state][action])
+            for state, action, reward in reversed(episode):
+
+    
+                G = self.gamma * G + reward
+
+                self.C[state][action] = self.C[state][action] + W
+                self.Q[state][action] = self.Q[state][action] + (W/self.C[state][action] * (G - self.Q[state][action]))
+
+                W = W * (self.target_policy[state][action]/self.behavior_policy[state][action])
+
+                if W == 0:
+                    break
+            
+            self.create_target_greedy_policy()        
+        # G = 0
+        # W = 1  # Importance sampling ratio
+
+        # for t in reversed(range(len(episode))):
+        #     state, action, reward = episode[t]
+        #     state = str(state)
+
+        #     G = self.gamma * G + reward  # Compute return
+
+        #     #print(f"Before update Q[{state}]: {self.Q[state]}")
 
 
-            W /= self.behavior_policy[state][action]  # Update importance sampling ratio
+        #     # Update C[state][action]
+        #     self.C[state][action] += W
+        #     self.Q[state][action] += (W / self.C[state][action]) * (G - self.Q[state][action])
 
-            self.create_target_greedy_policy()
+
+        #     #print(f"After update Q[{state}]: {self.Q[state]}")
+
+        #     if action != np.argmax(self.target_policy[state]):
+        #         break
+
+        #     W *= 1 / (self.behavior_policy[state][action] + 1e-8)  # Add small epsilon to prevent division issues
+
+        #     self.create_target_greedy_policy()
 
     def update_onpolicy(self, episode):
         """
