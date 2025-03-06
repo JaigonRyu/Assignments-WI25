@@ -17,48 +17,18 @@ def initialize_q_table(state_bins: dict, action_bins: list) -> np.ndarray:
     """
     # TODO: Implement this function
     
-    #print(action_bins)
-    #print(len(action_bins))
+    state_shape = []
+    for state in state_bins.values():
+        for bins in state:
+            state_shape.append(len(bins))
 
-    #print(state_bins)
-
-    state_bins_dims = 1
-    dims = []
-    for bins in state_bins.values():
-
-        for b in bins:
-            #print(len(b))
-            dims.append(len(b))
-
-    for dim in dims:
-        #print(dim)
-        state_bins_dims *= dim
-
-   # print(state_bins_dims)
-    
+    state_shape = tuple(state_shape)
 
 
-    q_table = np.zeros((state_bins_dims, len(action_bins)))
+    q_table = np.zeros((*state_shape, len(action_bins)))
 
     return q_table
     
-def state_to_index(state, state_bins) -> int:
-
-    index = 0
-
-    #state_bins_dims = 1
-    dims = []
-    for bins in state_bins.values():
-
-        for b in bins:
-            #print(len(b))
-            dims.append(len(b))
-
-    for i, (s, n) in enumerate(zip(state, dims)):
-        index *= n  # Shift index for next dimension
-        index += s  # Add current state component
-
-    return index
 
 # TD Learning algorithm
 def td_learning(env: Environment, num_episodes: int, alpha: float, gamma: float, epsilon: float, state_bins: dict, action_bins: list, q_table:np.ndarray=None) -> tuple:
@@ -98,39 +68,47 @@ def td_learning(env: Environment, num_episodes: int, alpha: float, gamma: float,
         state = time_step.observation
         state = quantize_state(state, state_bins)
 
-        reward_per_epsidoe = []
+        tot_reward = 0
 
-        while not time_step.last():
+        #action
+        if np.random.rand() < epsilon:
 
-            state_index = state_to_index(state, state_bins)
-
-            #action
-            if np.random.rand() < epsilon:
-
-                action = np.random.choice(len(action_bins) - 1)
+            action = np.random.choice(len(action_bins))
+            quantized_action = quantize_action(action, action_bins)
             
-            else:
+        else:
 
-                action = np.argmax(q_table[state_index])
+            action = np.argmax(q_table[state])
+            quantized_action = quantize_action(action, action_bins)
 
-            
-            time_step = env.step(action)
+        while not time_step.last(): 
+
+            time_step = env.step(quantized_action)
 
 
             reward = time_step.reward
 
             next_state_cont = time_step.observation
             next_state_discr = quantize_state(next_state_cont, state_bins)
-            next_state_index = state_to_index(next_state_discr, state_bins)
+           
+            #action
+            if np.random.rand() < epsilon:
 
-            max_future_q = np.max(q_table[next_state_index]) 
+                next_action = np.random.choice(len(action_bins))
+                quantized_next_action = quantize_action(next_action, action_bins)
+            
+            else:
 
-            q_table[state_index][action] +=  alpha * (reward + gamma * max_future_q - q_table[state_index][action])
+                next_action = np.argmax(q_table[next_state_discr])
+                quantized_next_action = quantize_action(next_action, action_bins)
 
+            q_table[state][quantized_action] +=  alpha * (reward  + gamma * q_table[next_state_discr][quantized_next_action] - q_table[state][quantized_action])
+            
             state = next_state_discr
-            reward_per_epsidoe.append(reward)
+            quantized_action = quantized_next_action
+            tot_reward += reward
 
-        rewards.append(reward_per_epsidoe)
+        rewards.append(tot_reward)
 
     return q_table, rewards
 
@@ -147,5 +125,6 @@ def greedy_policy(q_table: np.ndarray) -> callable:
     """
     def policy(state):
         
+       
         return np.argmax(q_table[state])
     return policy

@@ -14,20 +14,6 @@ def quantize_state(state: dict, state_bins: dict) -> tuple:
     Returns:
         tuple: The quantized representation of the state.
     """
-    # TODO
-    #print(state)
-    #print("bins", state_bins)
-
-    #pos1 = state["position"][0]
-    #print(pos1)
-
-    #pos2 = state["position"][1]
-
-    #pos3 = state["position"][2]
-
-    #velo1 = state["velocity"][0]
-
-    #velo2 = state["velocity"][1]
 
     quantized_state = []
 
@@ -52,7 +38,7 @@ def quantize_action(action: float, bins: list) -> int:
     """
     # TODO
 
-    print(action)
+    #print(action)
 
     return int(np.digitize(action, bins) - 1)
     

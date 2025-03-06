@@ -141,7 +141,7 @@ class MonteCarloControl:
 
             action = self.egreedy_selection(state)
             
-            reward = self.env.take_action(action)
+            reward = self.env.take_action(int(action))
             next_state = self.env.get_state()
             done = self.env.is_terminal_state()
 
@@ -180,7 +180,7 @@ class MonteCarloControl:
 
             action = np.argmax(self.target_policy[state])
             
-            reward = self.env.take_action(action)
+            reward = self.env.take_action(int(action))
             next_state = self.env.get_state()
             done = self.env.is_terminal_state()
 
@@ -188,11 +188,15 @@ class MonteCarloControl:
 
             episode.append((state, action, reward))
 
-            if done == True:
-                break
+            
 
             state = next_state
 
+            if done == True:
+                break
+        
+
+        #print(episode)
         return episode
     
     def update_offpolicy(self, episode):
@@ -218,13 +222,11 @@ class MonteCarloControl:
             self.C[state][action] += W
             self.Q[state][action] += (W / self.C[state][action]) * (G - self.Q[state][action])
 
-            # If action is not the greedy action, stop updating
-            if action != np.argmax(self.target_policy[state]):
-                break
 
             W /= self.behavior_policy[state][action]  # Update importance sampling ratio
 
-    
+            self.create_target_greedy_policy()
+
     def update_onpolicy(self, episode):
         """
         Update the Q-values using first visit epsilon-greedy. 

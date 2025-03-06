@@ -3,7 +3,7 @@
 import numpy as np
 import random
 
-class RaceTrack(object):
+class RaceTrack(object): 
     """
     RaceTrack object maintains and updates the race track
     state. Interaction with the class is through
